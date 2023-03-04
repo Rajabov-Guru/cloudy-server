@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  dev:
+    container_name: api-dev
+    image: nestjs-api-dev:1.0.0
+    env_file:
+      - .development.env
+    build:
+      context: .
+      target: development
+      dockerfile: ./Dockerfile
+    command: npm run start:dev
+    ports:
+      - '4000:4000'
+      - '5000:5000'
+    networks:
+      - nesjs-network
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_HOST=${MYSQL_HOST}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - dev-db
+      - adminer
+    restart: unless-stopped
+
+  dev-db:
+    container_name: dev-database
+    image: mysql:8.0
+    env_file:
+      - .development.env
+    networks:
+      - nesjs-network
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    ports:
+      - "3307:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    networks:
+      - nesjs-network
+    environment:
+      ADMINER_DEFAULT_SERVER: dev-db
+    ports:
+      - '8080:8080'
+    restart: always
+
+  prod:
+    container_name: api_prod
+    image: nestjs-api-prod:1.0.0
+    env_file:
+      - .production.env
+    build:
+      context: .
+      target: production
+      dockerfile: ./Dockerfile
+    command: npm run start:prod
+    ports:
+      - '4000:4000'
+      - '5000:5000'
+    networks:
+      - nesjs-network
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_HOST=${MYSQL_HOST}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - dev-db
+      - adminer
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+
+networks:
+  nesjs-network:
