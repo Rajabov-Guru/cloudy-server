@@ -3,8 +3,6 @@ import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { GetCookies } from '../decorators/cookies.decorator';
 import { Response } from 'express';
-import { CheckUserDataDto } from './dto/check-user-data.dto';
-import { RecoveryDto } from './dto/recovery.dto';
 
 @Controller('auth')
 export class AuthController {

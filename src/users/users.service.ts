@@ -1,18 +1,22 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
+import { FoldersService } from '../folders/folders.service';
 
 @Injectable()
 export class UsersService {
   @InjectRepository(User)
   private userRepository: Repository<User>;
 
+  @Inject(FoldersService)
+  private readonly foldersService: FoldersService;
+
   async create(createUserDto: CreateUserDto) {
-    let newUser = createUserDto as User;
+    const newUser = createUserDto as User;
     await this.userRepository.save(newUser);
+    await this.foldersService.createFolder(newUser.login, newUser.id);
     return newUser;
   }
 
@@ -40,14 +44,5 @@ export class UsersService {
 
   async findByLogin(login: string) {
     return this.userRepository.findOneBy({ login });
-  }
-
-  async update(id: number, updateUserDto: UpdateUserDto) {
-    const user = await this.findOne(id);
-    return this.userRepository.save({ ...user, ...updateUserDto });
-  }
-
-  async findAll() {
-    return this.userRepository.find();
   }
 }

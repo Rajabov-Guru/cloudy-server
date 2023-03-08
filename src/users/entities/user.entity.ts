@@ -4,10 +4,12 @@ import {
   PrimaryGeneratedColumn,
   OneToOne,
   CreateDateColumn,
-  ManyToOne,
+  UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
 import Token from '../../auth/entities/token.entity';
+import { Statistic } from '../../statistics/entities/statistic.entity';
+import { Folder } from '../../folders/entities/folder.entity';
 
 @Entity()
 export class User {
@@ -26,48 +28,27 @@ export class User {
   @Column()
   password: string;
 
-  @Column()
-  secret: number;
-
-  @Column({ default: 10 })
-  rating: number;
-
-  @Column({ default: false })
-  isReferal: boolean;
-
-  @Column({ default: false })
-  isLoyal: boolean;
-
-  @Column({ default: false })
-  isActive: boolean;
-
-  @Column({ default: 1 })
-  level: number;
-
-  @Column({ default: 0 })
-  referalsCount: number;
-
-  @Column({ default: null, nullable: true })
-  lastActionsDate: Date;
-
-  @Column({ default: null, nullable: true })
-  country: string;
-
   @CreateDateColumn()
   created_at: Date;
 
-  @Column({ nullable: true })
-  public refererId!: number;
-
-  @ManyToOne(() => User, (user) => user.referals, { onDelete: 'SET NULL' })
-  referer: User;
-
-  @OneToMany(() => User, (user) => user.referer, { onDelete: 'SET NULL' })
-  referals: User[];
+  @UpdateDateColumn()
+  updated_at: Date;
 
   @OneToOne(() => Token, (token) => token.user, {
     cascade: true,
     onDelete: 'CASCADE',
   })
   token: Token;
+
+  @OneToOne(() => Statistic, (stat) => stat.user, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  statistic: Statistic;
+
+  @OneToMany(() => Folder, (folder) => folder.user, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  folders: Folder[];
 }
