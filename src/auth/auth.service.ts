@@ -9,10 +9,8 @@ import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import * as bcrypt from 'bcryptjs';
-import { User } from '../users/entities/user.entity';
-import Token from './entities/token.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { User } from '@prisma/client';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -22,8 +20,8 @@ export class AuthService {
   @Inject(JwtService)
   private readonly jwtService: JwtService;
 
-  @InjectRepository(Token)
-  private readonly tokenRepository: Repository<Token>;
+  @Inject(PrismaService)
+  private readonly prisma: PrismaService;
 
   async login(dto: CreateUserDto) {
     const user = await this.userService.findByEmail(dto.email);
@@ -120,24 +118,31 @@ export class AuthService {
     const tokenData = await this.userService.getAuthToken(userId);
     if (tokenData) {
       tokenData.refresh = refreshToken;
-      user.token = tokenData;
-      await this.userService.save(user);
-      return tokenData;
+      return this.prisma.token.update({
+        where: { id: tokenData.id },
+        data: tokenData,
+      });
     }
-    const token = new Token();
-    token.refresh = refreshToken;
-    token.user = user;
-    await this.tokenRepository.save(token);
+    const token = await this.prisma.token.create({
+      data: {
+        refresh: refreshToken,
+        userId: user.id,
+      },
+    });
     return token;
   }
 
   async removeToken(refreshToken) {
     const token = await this.findToken(refreshToken);
-    return this.tokenRepository.remove(token);
+    return this.prisma.token.delete({
+      where: {
+        id: token.id,
+      },
+    });
   }
 
   async findToken(refreshToken) {
-    return this.tokenRepository.findOneBy({ refresh: refreshToken });
+    return this.prisma.token.findFirst({ where: { refresh: refreshToken } });
   }
 
   private async validateUser(dto: CreateUserDto) {

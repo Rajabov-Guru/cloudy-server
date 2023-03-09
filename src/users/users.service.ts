@@ -1,48 +1,69 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { InjectRepository } from '@nestjs/typeorm';
-import { User } from './entities/user.entity';
-import { Repository } from 'typeorm';
-import { FoldersService } from '../folders/folders.service';
+import { User } from '@prisma/client';
+import { PrismaService } from '../prisma.service';
+import { CloudsService } from '../clouds/clouds.service';
 
 @Injectable()
 export class UsersService {
-  @InjectRepository(User)
-  private userRepository: Repository<User>;
+  @Inject(PrismaService)
+  private readonly prisma: PrismaService;
 
-  @Inject(FoldersService)
-  private readonly foldersService: FoldersService;
+  @Inject(CloudsService)
+  private readonly cloudsService: CloudsService;
 
   async create(createUserDto: CreateUserDto) {
-    const newUser = createUserDto as User;
-    await this.userRepository.save(newUser);
-    await this.foldersService.createFolder(newUser.login, newUser.id);
+    let newUser = createUserDto as User;
+    newUser = await this.prisma.user.create({
+      data: newUser,
+    });
+    await this.cloudsService.create({
+      name: newUser.login,
+      userId: newUser.id,
+    });
     return newUser;
   }
 
   async getAuthToken(id: number) {
-    const user = await this.userRepository.findOne({
+    const user = await this.prisma.user.findFirst({
       where: { id },
-      relations: {
-        token: true,
+      include: {
+        Token: true,
       },
     });
-    return user.token;
+    return user.Token;
   }
 
   async save(user: User) {
-    return this.userRepository.save(user);
+    return this.prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: user,
+    });
   }
 
   async findOne(id: number) {
-    return this.userRepository.findOneBy({ id });
+    return this.prisma.user.findFirst({
+      where: {
+        id: id,
+      },
+    });
   }
 
   async findByEmail(email: string) {
-    return this.userRepository.findOneBy({ email });
+    return this.prisma.user.findFirst({
+      where: {
+        email,
+      },
+    });
   }
 
   async findByLogin(login: string) {
-    return this.userRepository.findOneBy({ login });
+    return this.prisma.user.findFirst({
+      where: {
+        login,
+      },
+    });
   }
 }

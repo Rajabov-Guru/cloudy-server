@@ -4,15 +4,16 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
 import { JwtService } from '@nestjs/jwt';
+import { CloudsService } from '../clouds/clouds.service';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private jwtService: JwtService) {}
-  canActivate(
-    context: ExecutionContext,
-  ): boolean | Promise<boolean> | Observable<boolean> {
+  constructor(
+    private jwtService: JwtService,
+    private cloudsService: CloudsService,
+  ) {}
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
 
     try {
@@ -27,7 +28,9 @@ export class JwtAuthGuard implements CanActivate {
       const user = this.jwtService.verify(token, {
         secret: process.env.JWT_ACCESS_SECRET,
       });
+      const cloud = await this.cloudsService.findOne(user.id);
       req.user = user;
+      req.cloud = cloud;
       return true;
     } catch (e) {
       throw new UnauthorizedException({ message: 'Access denied' });

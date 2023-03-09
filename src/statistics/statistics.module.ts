@@ -1,13 +1,11 @@
 import { Module } from '@nestjs/common';
 import { StatisticsService } from './statistics.service';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Statistic } from './entities/statistic.entity';
-import { StatisticItem } from './entities/statistic-item.entity';
 import { StatisticsController } from './statistics.controller';
+import { PrismaService } from '../prisma.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Statistic, StatisticItem])],
-  providers: [StatisticsService],
+  imports: [],
   controllers: [StatisticsController],
+  providers: [StatisticsService, PrismaService],
 })
 export class StatisticsModule {}

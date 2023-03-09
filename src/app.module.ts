@@ -5,17 +5,15 @@ import { UsersModule } from './users/users.module';
 import * as path from 'path';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { StatisticsModule } from './statistics/statistics.module';
-import { FoldersModule } from './folders/folders.module';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { dataSourceOptions } from './db/data-source';
 import { ConfigModule } from '@nestjs/config';
+import { PrismaService } from './prisma.service';
+import { CloudsModule } from './clouds/clouds.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       envFilePath: [`.${process.env.NODE_ENV}.env`],
     }),
-    TypeOrmModule.forRoot(dataSourceOptions),
     ServeStaticModule.forRoot({
       rootPath: path.resolve(__dirname, 'static'),
       serveRoot: '/',
@@ -24,9 +22,9 @@ import { ConfigModule } from '@nestjs/config';
     AuthModule,
     FilesModule,
     StatisticsModule,
-    FoldersModule,
+    CloudsModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [PrismaService],
 })
 export class AppModule {}

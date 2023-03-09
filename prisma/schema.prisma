@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String
+  login      String   @unique
+  email      String   @unique
+  password   String
+  created_at DateTime @default(now())
+  Token      Token?
+  Cloud      Cloud?
+}
+
+model Token {
+  id      Int    @id @default(autoincrement())
+  refresh String
+  User    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  Int    @unique
+}
+
+model Cloud {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  memory    Int        @default(2000000000)
+  User      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int        @unique
+  Statistic Statistic?
+  Files     File[]
+}
+
+model File {
+  id         Int      @id @default(autoincrement())
+  name       String
+  pathName   String
+  path       String   @unique
+  dir        Boolean  @default(true)
+  extension  String?
+  size       Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  Cloud      Cloud?   @relation(fields: [cloudId], references: [id], onDelete: Cascade)
+  cloudId    Int?
+  Parent     File?    @relation("Parent", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId   Int?
+  Childrens  File[]   @relation("Parent")
+}
+
+model Statistic {
+  id          Int             @id @default(autoincrement())
+  storeAmount Int             @default(0)
+  usedAmount  Int             @default(0)
+  StatItems   StatisticItem[]
+  Cloud       Cloud?          @relation(fields: [cloudId], references: [id], onDelete: Cascade)
+  cloudId     Int?            @unique
+}
+
+model StatisticItem {
+  id          Int        @id @default(autoincrement())
+  type        String
+  value       String
+  Statistic   Statistic? @relation(fields: [statisticId], references: [id], onDelete: Cascade)
+  statisticId Int?
+}

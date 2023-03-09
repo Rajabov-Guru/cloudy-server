@@ -1,10 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Statistic } from './entities/statistic.entity';
-import { Repository } from 'typeorm';
+import { Inject, Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class StatisticsService {
-  @InjectRepository(Statistic)
-  private readonly statRepository: Repository<Statistic>;
+  @Inject(PrismaService)
+  private readonly prisma: PrismaService;
 }

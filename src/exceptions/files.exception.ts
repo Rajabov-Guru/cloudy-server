@@ -1,6 +1,9 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 
-export type FolderExceptionType = 'ALREADY_EXISTS' | 'DOESNT_EXISTS';
+export type FolderExceptionType =
+  | 'ALREADY_EXISTS'
+  | 'DOESNT_EXISTS'
+  | 'NOT_DIR';
 
 const assertNever = (x: never): never => {
   throw new Error('Unexpected object: ' + x);
@@ -9,15 +12,17 @@ const assertNever = (x: never): never => {
 const getFolderExceptionLabel = (type: FolderExceptionType): string => {
   switch (type) {
     case 'ALREADY_EXISTS':
-      return 'Папка уже существует';
+      return 'Папка или файл уже существует';
     case 'DOESNT_EXISTS':
-      return 'Папки не существует';
+      return 'Папки или файла не существует';
+    case 'NOT_DIR':
+      return 'Родительский файл не является папкой';
     default:
       return assertNever(type);
   }
 };
 
-export class FolderException extends HttpException {
+export class FilesException extends HttpException {
   message: string;
 
   constructor(type: FolderExceptionType) {
