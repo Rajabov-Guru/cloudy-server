@@ -6,7 +6,6 @@ import {
   Injectable,
 } from '@nestjs/common';
 import * as fs from 'fs';
-import * as uuid from 'uuid';
 import { PrismaService } from '../prisma.service';
 import { CloudsService } from '../clouds/clouds.service';
 import * as pathManager from 'path';
@@ -55,8 +54,8 @@ export class FilesService {
     fs.mkdirSync(path, { recursive: true });
   }
 
-  async createDir(dto: CreateFileDto) {
-    const cloud = await this.cloudsService.findOne(dto.cloudId);
+  async createDir(dto: CreateFileDto, cloudId: number) {
+    const cloud = await this.cloudsService.findOne(cloudId);
     const pathName = dto.name;
     let parent = null;
     let path = pathName;
@@ -69,7 +68,7 @@ export class FilesService {
     const file = await this.prisma.file.create({
       data: {
         name: dto.name,
-        cloudId: dto.cloudId,
+        cloudId: cloudId,
         parentId: dto.parentId,
         pathName,
         path,
@@ -80,65 +79,60 @@ export class FilesService {
     return file;
   }
 
-  async saveFiles(dto: LoadFilesDto, files: Array<Express.Multer.File>) {
+  async saveFiles(
+    dto: LoadFilesDto,
+    files: Array<Express.Multer.File>,
+    cloudId: number,
+  ) {
     const fileItems: File[] = [];
     for (const file of files) {
-      const saved = await this.saveSingleFile(dto.parentId, file);
+      const saved = await this.saveSingleFile(+dto.parentId, file, cloudId);
       fileItems.push(saved);
     }
     return fileItems;
   }
 
-  async saveSingleFile(parentId: number, file: Express.Multer.File) {
-    const parent = await this.findOne(parentId);
-    const cloud = await this.cloudsService.findOne(parent.cloudId);
-    if (!parent.dir) {
-      throw new FilesException('NOT_DIR');
-    }
+  async saveSingleFile(
+    parentId: number | null,
+    file: Express.Multer.File,
+    cloudId: number,
+  ) {
+    let parent = null;
+    const cloud = await this.cloudsService.findOne(cloudId);
     const filename = file.originalname;
     const ext = pathManager.extname(filename);
-    const filePath = this.getFilePath(cloud.name, filename, parent);
-    if (fs.existsSync(filePath)) {
-      throw new FilesException('ALREADY_EXISTS');
+    let path = filename;
+    if (parentId) {
+      parent = await this.findOne(parentId);
+      path = pathManager.join(parent.path, path);
     }
-    fs.writeFileSync(filePath, file.buffer);
+    const filePath = this.getFilePath(cloud.name, filename, parent);
+    await this.save(file, filePath);
     const saved = await this.prisma.file.create({
       data: {
         name: filename,
         cloudId: cloud.id,
         parentId: parentId,
         pathName: filename,
-        path: filePath,
+        path: path,
         dir: false,
         extension: ext,
+        size: file.size,
       },
     });
     return saved;
   }
 
-  async loadFile(file: Express.Multer.File, path: string) {
+  async save(file: Express.Multer.File, path: string) {
     try {
-      const fileName = uuid.v4() + pathManager.extname(file.originalname);
-      if (!fs.existsSync(path)) {
-        fs.mkdirSync(path, { recursive: true });
+      if (fs.existsSync(path)) {
+        throw new FilesException('ALREADY_EXISTS');
       }
-      fs.writeFileSync(pathManager.join(path, fileName), file.buffer);
+      fs.writeFileSync(path, file.buffer);
     } catch (e) {
       console.log(e);
       throw new HttpException(
         'Произошла ошибка при записи файла',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  async removeFile(path: string): Promise<void> {
-    try {
-      await fs.unlink(pathManager.join(path), () => console.log('Deleted'));
-    } catch (e) {
-      console.log(e);
-      throw new HttpException(
-        'Произошла ошибка при удалении файла',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -169,7 +163,15 @@ export class FilesService {
     const file = await this.findOne(fileId);
     const cloud = await this.cloudsService.findOne(file.cloudId);
     const folderPath = this.getFilePath(cloud.name, file.path);
-    fs.rmSync(folderPath, { recursive: true, force: true });
+    try {
+      fs.rmSync(folderPath, { recursive: true, force: true });
+    } catch (e) {
+      console.log(e);
+      throw new HttpException(
+        'Произошла ошибка при удалении файла',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
     return this.prisma.file.delete({
       where: { id: fileId },
     });

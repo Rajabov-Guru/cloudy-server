@@ -1,4 +1,3 @@
 export class LoadFilesDto {
-  cloudId: number;
-  parentId: number;
+  parentId?: number | null;
 }
