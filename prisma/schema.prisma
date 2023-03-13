@@ -32,7 +32,23 @@ model Cloud {
   User      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    Int        @unique
   Statistic Statistic?
-  Files     File[]
+  Folder    Folder[]
+}
+
+model Folder {
+  id         Int      @id @default(autoincrement())
+  name       String
+  pathName   String
+  path       String   @unique
+  size       Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  Cloud      Cloud?   @relation(fields: [cloudId], references: [id], onDelete: Cascade)
+  cloudId    Int?
+  Parent     Folder?  @relation("Parent", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId   Int?
+  Childrens  Folder[] @relation("Parent")
+  Files      File[]
 }
 
 model File {
@@ -40,16 +56,12 @@ model File {
   name       String
   pathName   String
   path       String   @unique
-  dir        Boolean  @default(true)
   extension  String?
   size       Int      @default(0)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
-  Cloud      Cloud?   @relation(fields: [cloudId], references: [id], onDelete: Cascade)
-  cloudId    Int?
-  Parent     File?    @relation("Parent", fields: [parentId], references: [id], onDelete: Cascade)
-  parentId   Int?
-  Childrens  File[]   @relation("Parent")
+  Folder     Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folderId   Int
 }
 
 model Statistic {

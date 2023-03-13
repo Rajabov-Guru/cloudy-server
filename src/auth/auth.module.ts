@@ -9,7 +9,7 @@ import { CloudsModule } from '../clouds/clouds.module';
 @Module({
   imports: [
     forwardRef(() => UsersModule),
-    CloudsModule,
+    forwardRef(() => CloudsModule),
     JwtModule.register({
       secret: process.env.PRIVATE_KEY || 'SECRET123',
       signOptions: {

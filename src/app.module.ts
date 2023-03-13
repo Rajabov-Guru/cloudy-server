@@ -8,6 +8,7 @@ import { StatisticsModule } from './statistics/statistics.module';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaService } from './prisma.service';
 import { CloudsModule } from './clouds/clouds.module';
+import { FoldersModule } from './folders/folders.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CloudsModule } from './clouds/clouds.module';
     FilesModule,
     StatisticsModule,
     CloudsModule,
+    FoldersModule,
   ],
   controllers: [],
   providers: [PrismaService],
