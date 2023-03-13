@@ -23,6 +23,11 @@ export class FoldersController {
     return this.foldersService.create(dto, cloud.id);
   }
 
+  @Post('reset/:id')
+  async reset(@Param('id') id: string) {
+    return this.foldersService.reset(+id);
+  }
+
   @Put()
   async rename(@Body() dto: RenameDto) {
     return this.foldersService.rename(dto);

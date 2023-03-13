@@ -1,11 +1,10 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
-import { CloudsService } from '../clouds/clouds.service';
+import { Inject, Injectable } from '@nestjs/common';
+import { PrismaService } from '../global-services/prisma.service';
 import * as pathManager from 'path';
 import { FilesException } from '../exceptions/files.exception';
 import { File, Folder } from '@prisma/client';
 import { LoadFilesDto } from './dto/load-files.dto';
-import { FsService } from '../folders/fs.service';
+import { FsService } from '../global-services/fs.service';
 import { RenameDto } from '../folders/dto/rename.dto';
 import { FoldersService } from '../folders/folders.service';
 
@@ -17,10 +16,7 @@ export class FilesService {
   @Inject(FoldersService)
   private readonly foldersService: FoldersService;
 
-  @Inject(forwardRef(() => CloudsService))
-  private readonly cloudsService: CloudsService;
-
-  @Inject(forwardRef(() => FsService))
+  @Inject(FsService)
   private readonly fsService: FsService;
 
   async findOne(fileId: number) {

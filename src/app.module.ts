@@ -6,9 +6,10 @@ import * as path from 'path';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { StatisticsModule } from './statistics/statistics.module';
 import { ConfigModule } from '@nestjs/config';
-import { PrismaService } from './prisma.service';
+import { PrismaService } from './global-services/prisma.service';
 import { CloudsModule } from './clouds/clouds.module';
 import { FoldersModule } from './folders/folders.module';
+import { FsService } from './global-services/fs.service';
 
 @Module({
   imports: [
@@ -27,6 +28,6 @@ import { FoldersModule } from './folders/folders.module';
     FoldersModule,
   ],
   controllers: [],
-  providers: [PrismaService],
+  providers: [PrismaService, FsService],
 })
 export class AppModule {}

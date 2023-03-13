@@ -1,7 +1,7 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../global-services/prisma.service';
 import { CreateFolderDto } from './dto/create-folder.dto';
-import { FsService } from './fs.service';
+import { FsService } from '../global-services/fs.service';
 import * as pathManager from 'path';
 import { CloudsService } from '../clouds/clouds.service';
 import { FilesException } from '../exceptions/files.exception';
@@ -13,7 +13,7 @@ export class FoldersService {
   @Inject(PrismaService)
   private readonly prisma: PrismaService;
 
-  @Inject(forwardRef(() => FsService))
+  @Inject(FsService)
   private readonly fsService: FsService;
 
   @Inject(forwardRef(() => CloudsService))
@@ -48,7 +48,7 @@ export class FoldersService {
       parentPath = parent.path;
     }
     const path = pathManager.join(parentPath, pathName);
-    this.fsService.makeDirectory(path);
+    await this.fsService.makeDirectory(path);
     const folder = await this.prisma.folder.create({
       data: {
         name: dto.name,
@@ -75,7 +75,37 @@ export class FoldersService {
     });
   }
 
-  //reset folder (aka: make it empty)
-  //replace folder
-  //copy folder
+  async reset(folderId: number) {
+    const folder = await this.findOne(folderId);
+    try {
+      await this.fsService.makeEmpty(folder.path);
+      await this.prisma.folder.deleteMany({
+        where: {
+          parentId: folderId,
+        },
+      });
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  async replace(folderId: number, newParentId: number) {
+    const folder = await this.findOne(folderId);
+    const parent = await this.findOne(newParentId);
+    await this.fsService.replace(folder.path, parent.path);
+    folder.path = pathManager.join(parent.path, folder.pathName);
+    return this.update(folder);
+  }
+
+  async copy(folderId: number, parentId: number) {
+    let folder = await this.findOne(folderId);
+    const parent = await this.findOne(parentId);
+    await this.fsService.copy(folder.path, parent.path);
+    folder.path = pathManager.join(parent.path, folder.pathName);
+    folder = await this.update(folder);
+  }
+
+  private async correctPath(folderId: number) {
+    const folder = await this.findOne(folderId);
+  }
 }

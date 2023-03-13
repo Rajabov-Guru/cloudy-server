@@ -1,19 +1,19 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CreateCloudDto } from './dto/create-cloud.dto';
 import { UpdateCloudDto } from './dto/update-cloud.dto';
-import { PrismaService } from '../prisma.service';
-import { FsService } from '../folders/fs.service';
+import { PrismaService } from '../global-services/prisma.service';
+import { FsService } from '../global-services/fs.service';
 
 @Injectable()
 export class CloudsService {
   @Inject(PrismaService)
   private readonly prisma: PrismaService;
 
-  @Inject(forwardRef(() => FsService))
+  @Inject(FsService)
   private readonly fsService: FsService;
   async create(createCloudDto: CreateCloudDto) {
     const cloud = await this.prisma.cloud.create({ data: createCloudDto });
-    this.fsService.makeDirectory(cloud.name);
+    await this.fsService.makeDirectory(`@${cloud.name}`);
     return cloud;
   }
   findOne(id: number) {
