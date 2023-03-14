@@ -18,7 +18,7 @@ export class UsersService {
       data: newUser,
     });
     await this.cloudsService.create({
-      name: newUser.login,
+      name: `@${newUser.login}`,
       userId: newUser.id,
     });
     return newUser;

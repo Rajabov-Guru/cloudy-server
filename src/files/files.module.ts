@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { FilesService } from './files.service';
 import { FilesController } from './files.controller';
 import { PrismaService } from '../global-services/prisma.service';
@@ -8,7 +8,7 @@ import { FsService } from '../global-services/fs.service';
 import { CloudsModule } from '../clouds/clouds.module';
 
 @Module({
-  imports: [AuthModule, FoldersModule, CloudsModule],
+  imports: [AuthModule, forwardRef(() => FoldersModule), CloudsModule],
   controllers: [FilesController],
   providers: [FilesService, PrismaService, FsService],
   exports: [FilesService],
