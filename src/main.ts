@@ -4,7 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
-  const PORT = process.env.PORT || 5000;
+  const PORT = process.env.PORT;
 
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
@@ -20,7 +20,9 @@ async function bootstrap() {
     .addTag('MVP')
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, config, {
+    extraModels: [],
+  });
   SwaggerModule.setup('/api/docs', app, document);
   app.use(cookieParser());
   await app.listen(PORT, () => console.log(`Server running on port: ${PORT}`));

@@ -40,6 +40,10 @@ CREATE TABLE `Folder` (
     `name` VARCHAR(191) NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
+    `favorite` BOOLEAN NOT NULL DEFAULT false,
+    `pined` BOOLEAN NOT NULL DEFAULT false,
+    `freezed` BOOLEAN NOT NULL DEFAULT false,
+    `trashed` BOOLEAN NOT NULL DEFAULT false,
     `cloudId` INTEGER NOT NULL,
     `parentId` INTEGER NULL,
 
@@ -53,10 +57,27 @@ CREATE TABLE `File` (
     `pathName` VARCHAR(191) NOT NULL,
     `extension` VARCHAR(191) NULL,
     `size` INTEGER NOT NULL DEFAULT 0,
+    `favorite` BOOLEAN NOT NULL DEFAULT false,
+    `pined` BOOLEAN NOT NULL DEFAULT false,
+    `freezed` BOOLEAN NOT NULL DEFAULT false,
+    `trashed` BOOLEAN NOT NULL DEFAULT false,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
     `folderId` INTEGER NULL,
 
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Trash` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `dir` BOOLEAN NOT NULL DEFAULT false,
+    `parentId` INTEGER NULL,
+    `folderId` INTEGER NULL,
+    `fileId` INTEGER NULL,
+
+    UNIQUE INDEX `Trash_folderId_key`(`folderId`),
+    UNIQUE INDEX `Trash_fileId_key`(`fileId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -75,8 +96,8 @@ CREATE TABLE `Statistic` (
 CREATE TABLE `StatisticItem` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `type` VARCHAR(191) NOT NULL,
-    `value` VARCHAR(191) NOT NULL,
-    `statisticId` INTEGER NULL,
+    `value` INTEGER NOT NULL,
+    `statisticId` INTEGER NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -95,6 +116,12 @@ ALTER TABLE `Folder` ADD CONSTRAINT `Folder_parentId_fkey` FOREIGN KEY (`parentI
 
 -- AddForeignKey
 ALTER TABLE `File` ADD CONSTRAINT `File_folderId_fkey` FOREIGN KEY (`folderId`) REFERENCES `Folder`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Trash` ADD CONSTRAINT `Trash_folderId_fkey` FOREIGN KEY (`folderId`) REFERENCES `Folder`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Trash` ADD CONSTRAINT `Trash_fileId_fkey` FOREIGN KEY (`fileId`) REFERENCES `File`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Statistic` ADD CONSTRAINT `Statistic_cloudId_fkey` FOREIGN KEY (`cloudId`) REFERENCES `Cloud`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

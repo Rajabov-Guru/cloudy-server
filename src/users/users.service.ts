@@ -34,7 +34,7 @@ export class UsersService {
     return user.Token;
   }
 
-  async save(user: User) {
+  async update(user: User) {
     return this.prisma.user.update({
       where: {
         id: user.id,

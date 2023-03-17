@@ -1,6 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import * as pathManager from 'path';
-import * as fs from 'fs';
 import * as fse from 'fs-extra';
 import { FilesException } from '../exceptions/files.exception';
 import { File } from '@prisma/client';
@@ -82,22 +81,6 @@ export class FsService {
     const to = this.resolveFullPath(toPath);
     await fse.copy(from, to);
     return newPathName;
-  }
-
-  async makeEmpty(relativePath: string) {
-    const fullPath = this.resolveFullPath(relativePath);
-    try {
-      await fse.emptyDir(fullPath);
-    } catch (e) {
-      throw e;
-    }
-    // fs.readdir(fullPath, (err, files) => {
-    //   if (err) throw err;
-    //
-    //   for (const file of files) {
-    //     fs.unlinkSync(`${fullPath}/${file}`);
-    //   }
-    // });
   }
   async replace(cloudName: string, file: File, folderId: number | null) {
     const newPathName = this.getPathName(folderId, file.name);

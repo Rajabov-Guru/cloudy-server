@@ -10,35 +10,32 @@ services:
       context: .
       target: development
       dockerfile: ./Dockerfile
-    command: npm run start:dev
+    command: npm run start:docdev
     ports:
       - '4000:4000'
       - '5000:5000'
     networks:
       - nesjs-network
     environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_HOST=${MYSQL_HOST}
+      - DATABASE_URL=${DATABASE_URL}
     volumes:
       - .:/app
       - /app/node_modules
     depends_on:
-      - dev-db
+      - database
       - adminer
     restart: unless-stopped
 
-  dev-db:
-    container_name: dev-database
+  database:
+    container_name: database
     image: mysql:8.0
     env_file:
       - .development.env
     networks:
       - nesjs-network
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=cloudydb
     ports:
       - "3307:3306"
     volumes:
@@ -71,15 +68,12 @@ services:
     networks:
       - nesjs-network
     environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_HOST=${MYSQL_HOST}
+      - DATABASE_URL=${DATABASE_URL}
     volumes:
       - .:/app
       - /app/node_modules
     depends_on:
-      - dev-db
+      - database
       - adminer
     restart: unless-stopped
 

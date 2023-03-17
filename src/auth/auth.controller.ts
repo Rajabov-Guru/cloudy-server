@@ -3,11 +3,14 @@ import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { GetCookies } from '../decorators/cookies.decorator';
 import { Response } from 'express';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @ApiOperation({ summary: 'Регистрация' })
   @Post('/registration')
   async registration(
     @Body() dto: CreateUserDto,
@@ -21,6 +24,7 @@ export class AuthController {
     return userData;
   }
 
+  @ApiOperation({ summary: 'Логин' })
   @Post('/login')
   async login(
     @Body() dto: CreateUserDto,
@@ -34,6 +38,7 @@ export class AuthController {
     return userData;
   }
 
+  @ApiOperation({ summary: 'Логоут' })
   @Post('/logout')
   async logout(
     @GetCookies('refreshToken') refreshToken: string,
@@ -43,6 +48,7 @@ export class AuthController {
     return this.authService.logout(refreshToken);
   }
 
+  @ApiOperation({ summary: 'Рефреш' })
   @Get('/refresh')
   async refresh(
     @GetCookies('refreshToken') refreshToken: string,

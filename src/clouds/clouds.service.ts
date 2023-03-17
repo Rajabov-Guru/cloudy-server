@@ -3,8 +3,8 @@ import { CreateCloudDto } from './dto/create-cloud.dto';
 import { UpdateCloudDto } from './dto/update-cloud.dto';
 import { PrismaService } from '../global-services/prisma.service';
 import { FsService } from '../global-services/fs.service';
-import { Folder } from '@prisma/client';
-import { FoldersService } from '../folders/folders.service';
+import { FoldersService } from '../drive/services/folders.service';
+import { StatisticsService } from '../statistics/statistics.service';
 
 @Injectable()
 export class CloudsService {
@@ -16,10 +16,20 @@ export class CloudsService {
 
   @Inject(forwardRef(() => FoldersService))
   private readonly foldersService: FoldersService;
+
+  @Inject(StatisticsService)
+  private readonly statisticsService: StatisticsService;
   async create(createCloudDto: CreateCloudDto) {
     const cloud = await this.prisma.cloud.create({ data: createCloudDto });
+    await this.statisticsService.create(cloud.id, cloud.memory);
     await this.fsService.makeDirectory(cloud.name);
     return cloud;
+  }
+
+  async getByUser(userId: number) {
+    return this.prisma.cloud.findFirst({
+      where: { userId },
+    });
   }
   findOne(id: number) {
     return this.prisma.cloud.findFirst({

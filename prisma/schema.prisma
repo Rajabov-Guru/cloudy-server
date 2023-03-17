@@ -40,12 +40,17 @@ model Folder {
   name       String
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+  favorite   Boolean  @default(false)
+  pined      Boolean  @default(false)
+  freezed    Boolean  @default(false)
+  trashed    Boolean  @default(false)
   Cloud      Cloud    @relation(fields: [cloudId], references: [id], onDelete: Cascade)
   cloudId    Int
   Parent     Folder?  @relation("Parent", fields: [parentId], references: [id], onDelete: Cascade)
   parentId   Int?
   Children   Folder[] @relation("Parent")
   Files      File[]
+  Trash      Trash?
 }
 
 model File {
@@ -54,10 +59,25 @@ model File {
   pathName   String
   extension  String?
   size       Int      @default(0)
+  favorite   Boolean  @default(false)
+  pined      Boolean  @default(false)
+  freezed    Boolean  @default(false)
+  trashed    Boolean  @default(false)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   Folder     Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
   folderId   Int?
+  Trash      Trash?
+}
+
+model Trash {
+  id       Int     @id @default(autoincrement())
+  dir      Boolean @default(false)
+  parentId Int?
+  Folder   Folder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folderId Int?    @unique
+  File     File?   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  fileId   Int?    @unique
 }
 
 model Statistic {
@@ -70,9 +90,9 @@ model Statistic {
 }
 
 model StatisticItem {
-  id          Int        @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   type        String
-  value       String
-  Statistic   Statistic? @relation(fields: [statisticId], references: [id], onDelete: Cascade)
-  statisticId Int?
+  value       Int
+  Statistic   Statistic @relation(fields: [statisticId], references: [id], onDelete: Cascade)
+  statisticId Int
 }

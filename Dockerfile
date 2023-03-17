@@ -8,7 +8,7 @@ RUN npm install
 
 COPY . .
 
-CMD ["npm", "run", "start:dev"]
+CMD ["npm", "run", "start:docdev"]
 
 FROM node:18.12.0 AS production
 
