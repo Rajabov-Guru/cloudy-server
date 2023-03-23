@@ -10,6 +10,7 @@ import { FsService } from '../global-services/fs.service';
 import { TrashService } from './services/trash.service';
 import { TrashController } from './controllers/trash.controller';
 import { StatisticsModule } from '../statistics/statistics.module';
+import { SharingService } from './services/sharing.service';
 
 @Module({
   imports: [
@@ -22,9 +23,10 @@ import { StatisticsModule } from '../statistics/statistics.module';
     FoldersService,
     FilesService,
     TrashService,
+    SharingService,
     PrismaService,
     FsService,
   ],
-  exports: [FoldersService, FilesService, TrashService],
+  exports: [FoldersService, FilesService, TrashService, SharingService],
 })
 export class DriveModule {}

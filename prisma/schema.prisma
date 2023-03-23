@@ -32,52 +32,79 @@ model Cloud {
   User      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    Int        @unique
   Statistic Statistic?
-  Folder    Folder[]
+  Folders   Folder[]
+  Files     File[]
+  Trashes   Trash[]
 }
 
 model Folder {
-  id         Int      @id @default(autoincrement())
+  id         Int         @id @default(autoincrement())
   name       String
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  favorite   Boolean  @default(false)
-  pined      Boolean  @default(false)
-  freezed    Boolean  @default(false)
-  trashed    Boolean  @default(false)
-  Cloud      Cloud    @relation(fields: [cloudId], references: [id], onDelete: Cascade)
+  pathName   String      @unique
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt
+  favorite   Boolean     @default(false)
+  pined      Boolean     @default(false)
+  freezed    Boolean     @default(false)
+  trashed    Boolean     @default(false)
+  shared     Boolean     @default(false)
+  Cloud      Cloud       @relation(fields: [cloudId], references: [id], onDelete: Cascade)
   cloudId    Int
-  Parent     Folder?  @relation("Parent", fields: [parentId], references: [id], onDelete: Cascade)
+  Parent     Folder?     @relation("Parent", fields: [parentId], references: [id], onDelete: Cascade)
   parentId   Int?
-  Children   Folder[] @relation("Parent")
+  Children   Folder[]    @relation("Parent")
   Files      File[]
   Trash      Trash?
+  AccessList SharedList?
 }
 
 model File {
-  id         Int      @id @default(autoincrement())
+  id         Int         @id @default(autoincrement())
   name       String
-  pathName   String
+  pathName   String      @unique
   extension  String?
-  size       Int      @default(0)
-  favorite   Boolean  @default(false)
-  pined      Boolean  @default(false)
-  freezed    Boolean  @default(false)
-  trashed    Boolean  @default(false)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  Folder     Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  folderId   Int?
+  size       Int         @default(0)
+  favorite   Boolean     @default(false)
+  pined      Boolean     @default(false)
+  freezed    Boolean     @default(false)
+  trashed    Boolean     @default(false)
+  shared     Boolean     @default(false)
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt
+  Cloud      Cloud       @relation(fields: [cloudId], references: [id], onDelete: Cascade)
+  cloudId    Int
+  Folder     Folder?     @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  parentId   Int?
   Trash      Trash?
+  AccessList SharedList?
 }
 
 model Trash {
   id       Int     @id @default(autoincrement())
   dir      Boolean @default(false)
   parentId Int?
+  Cloud    Cloud   @relation(fields: [cloudId], references: [id], onDelete: Cascade)
+  cloudId  Int
   Folder   Folder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
   folderId Int?    @unique
   File     File?   @relation(fields: [fileId], references: [id], onDelete: Cascade)
   fileId   Int?    @unique
+}
+
+enum AccessAction {
+  READ
+  EDIT
+}
+
+model SharedList {
+  id           Int          @id @default(autoincrement())
+  dir          Boolean      @default(false)
+  open         Boolean      @default(true)
+  AccessAction AccessAction @default(value: READ)
+  Folder       Folder?      @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folderId     Int?         @unique
+  File         File?        @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  fileId       Int?         @unique
 }
 
 model Statistic {

@@ -38,15 +38,18 @@ CREATE TABLE `Cloud` (
 CREATE TABLE `Folder` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(191) NOT NULL,
+    `pathName` VARCHAR(191) NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
     `favorite` BOOLEAN NOT NULL DEFAULT false,
     `pined` BOOLEAN NOT NULL DEFAULT false,
     `freezed` BOOLEAN NOT NULL DEFAULT false,
     `trashed` BOOLEAN NOT NULL DEFAULT false,
+    `shared` BOOLEAN NOT NULL DEFAULT false,
     `cloudId` INTEGER NOT NULL,
     `parentId` INTEGER NULL,
 
+    UNIQUE INDEX `Folder_pathName_key`(`pathName`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -61,10 +64,13 @@ CREATE TABLE `File` (
     `pined` BOOLEAN NOT NULL DEFAULT false,
     `freezed` BOOLEAN NOT NULL DEFAULT false,
     `trashed` BOOLEAN NOT NULL DEFAULT false,
+    `shared` BOOLEAN NOT NULL DEFAULT false,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
+    `cloudId` INTEGER NOT NULL,
     `folderId` INTEGER NULL,
 
+    UNIQUE INDEX `File_pathName_key`(`pathName`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -73,11 +79,26 @@ CREATE TABLE `Trash` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `dir` BOOLEAN NOT NULL DEFAULT false,
     `parentId` INTEGER NULL,
+    `cloudId` INTEGER NOT NULL,
     `folderId` INTEGER NULL,
     `fileId` INTEGER NULL,
 
     UNIQUE INDEX `Trash_folderId_key`(`folderId`),
     UNIQUE INDEX `Trash_fileId_key`(`fileId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `SharedList` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `dir` BOOLEAN NOT NULL DEFAULT false,
+    `open` BOOLEAN NOT NULL DEFAULT true,
+    `AccessAction` ENUM('READ', 'EDIT') NOT NULL DEFAULT 'READ',
+    `folderId` INTEGER NULL,
+    `fileId` INTEGER NULL,
+
+    UNIQUE INDEX `SharedList_folderId_key`(`folderId`),
+    UNIQUE INDEX `SharedList_fileId_key`(`fileId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -115,13 +136,25 @@ ALTER TABLE `Folder` ADD CONSTRAINT `Folder_cloudId_fkey` FOREIGN KEY (`cloudId`
 ALTER TABLE `Folder` ADD CONSTRAINT `Folder_parentId_fkey` FOREIGN KEY (`parentId`) REFERENCES `Folder`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `File` ADD CONSTRAINT `File_cloudId_fkey` FOREIGN KEY (`cloudId`) REFERENCES `Cloud`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `File` ADD CONSTRAINT `File_folderId_fkey` FOREIGN KEY (`folderId`) REFERENCES `Folder`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Trash` ADD CONSTRAINT `Trash_cloudId_fkey` FOREIGN KEY (`cloudId`) REFERENCES `Cloud`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Trash` ADD CONSTRAINT `Trash_folderId_fkey` FOREIGN KEY (`folderId`) REFERENCES `Folder`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Trash` ADD CONSTRAINT `Trash_fileId_fkey` FOREIGN KEY (`fileId`) REFERENCES `File`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `SharedList` ADD CONSTRAINT `SharedList_folderId_fkey` FOREIGN KEY (`folderId`) REFERENCES `Folder`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `SharedList` ADD CONSTRAINT `SharedList_fileId_fkey` FOREIGN KEY (`fileId`) REFERENCES `File`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Statistic` ADD CONSTRAINT `Statistic_cloudId_fkey` FOREIGN KEY (`cloudId`) REFERENCES `Cloud`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

@@ -2,10 +2,11 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  SetMetadata,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { CloudsService } from '../clouds/clouds.service';
+import { CloudsService } from '../../clouds/clouds.service';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {

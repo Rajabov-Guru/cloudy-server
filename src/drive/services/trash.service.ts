@@ -4,6 +4,7 @@ import { FoldersService } from './folders.service';
 import { FilesService } from './files.service';
 import { File, Folder } from '@prisma/client';
 import { InnersDto } from '../dto/inners.dto';
+import { TrashDto } from '../dto/trash.dto';
 
 @Injectable()
 export class TrashService {
@@ -25,22 +26,26 @@ export class TrashService {
       },
     });
   }
-  private async getElements(dir = false) {
+  private async getElements(cloudId: number, dir = false) {
     return this.prisma.trash.findMany({
-      where: { dir },
+      where: {
+        cloudId,
+        dir,
+      },
       select: {
         Folder: dir,
         File: !dir,
       },
     });
   }
-  private async record(targetId: number, parentId, dir = false) {
+  private async record(dto: TrashDto) {
     return this.prisma.trash.create({
       data: {
-        dir,
-        parentId,
-        fileId: dir ? null : targetId,
-        folderId: dir ? targetId : null,
+        cloudId: dto.cloudId,
+        dir: dto.dir,
+        parentId: dto.parentId,
+        fileId: dto.dir ? null : dto.targetId,
+        folderId: dto.dir ? dto.targetId : null,
       },
     });
   }
@@ -53,7 +58,8 @@ export class TrashService {
   }
 
   async trashFolder(folder: Folder) {
-    await this.record(folder.id, folder.parentId, true);
+    const dto = new TrashDto(folder, true);
+    await this.record(dto);
     folder.trashed = true;
     folder.parentId = null;
     return this.foldersService.update(folder);
@@ -77,9 +83,10 @@ export class TrashService {
   }
 
   async trashFile(file: File) {
-    await this.record(file.id, file.folderId);
+    const dto = new TrashDto(file, true);
+    await this.record(dto);
     file.trashed = true;
-    file.folderId = null;
+    file.parentId = null;
     return this.filesService.update(file);
   }
 
@@ -91,18 +98,18 @@ export class TrashService {
     const trashRecord = await this.getOne(file.id);
     try {
       const parent = await this.filesService.findOne(trashRecord.parentId);
-      file.folderId = parent.id;
+      file.parentId = parent.id;
     } catch (e) {
-      file.folderId = null;
+      file.parentId = null;
     }
     file.trashed = false;
     await this.removeById(trashRecord.id);
     return this.filesService.update(file);
   }
 
-  async getAll(): Promise<InnersDto> {
-    const folderRecords = await this.getElements(true);
-    const fileRecords = await this.getElements();
+  async getAll(cloudId: number): Promise<InnersDto> {
+    const folderRecords = await this.getElements(cloudId, true);
+    const fileRecords = await this.getElements(cloudId);
     const folders = folderRecords.map((f) => f.Folder);
     const files = fileRecords.map((f) => f.File);
     return {

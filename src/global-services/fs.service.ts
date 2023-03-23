@@ -65,7 +65,7 @@ export class FsService {
     // fs.writeFileSync(fullPath, file.buffer);
   }
   async rename(cloudName: string, file: File, newName: string) {
-    const newPathName = this.getPathName(file.folderId, newName);
+    const newPathName = this.getPathName(file.parentId, newName);
     const oldRelPath = pathManager.join(cloudName, file.pathName);
     const newRelPath = pathManager.join(cloudName, newPathName);
     const oldPath = this.resolveFullPath(oldRelPath);

@@ -1,5 +1,5 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { Folder } from '@prisma/client';
+import { Cloud, Folder } from '@prisma/client';
 import { PrismaService } from '../../global-services/prisma.service';
 import { FsService } from '../../global-services/fs.service';
 import { CloudsService } from '../../clouds/clouds.service';
@@ -7,9 +7,10 @@ import { FilesService } from './files.service';
 import { FilesException } from '../../exceptions/files.exception';
 import { InnersDto } from '../dto/inners.dto';
 import { CreateFolderDto } from '../dto/create-folder.dto';
-import { RenameDto } from '../dto/rename.dto';
-import { CopyDto } from '../dto/copy.dto';
 import { TrashService } from './trash.service';
+import { SharingService } from './sharing.service';
+import { ShareDto } from '../dto/share.dto';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class FoldersService {
@@ -28,42 +29,59 @@ export class FoldersService {
   @Inject(TrashService)
   private readonly trashService: TrashService;
 
-  private async doubleFolder(
-    cloudName: string,
-    folder: Folder,
-    parentId: number,
-  ) {
+  @Inject(SharingService)
+  private readonly sharingService: SharingService;
+
+  private async doubleFolder(cloud: Cloud, folder: Folder, parentId: number) {
     const data = folder;
     data.parentId = parentId;
+    const pathName = uuidv4();
     const newFolder = await this.prisma.folder.create({
       data: {
         name: data.name,
         cloudId: data.cloudId,
         parentId: data.parentId,
+        pathName,
       },
     });
     const files = await this.filesService.findByFolder(folder.id);
     for (const file of files) {
-      await this.filesService.doubleFile(cloudName, file, newFolder.id);
+      await this.filesService.doubleFile(cloud, file, newFolder.id);
     }
     const children = await this.findChildren(folder.id);
     for (const child of children) {
-      await this.doubleFolder(cloudName, child, newFolder.id);
+      await this.doubleFolder(cloud, child, newFolder.id);
     }
     return newFolder;
   }
 
-  async findOne(folderId: number, trashed = false) {
-    const folder = await this.prisma.folder.findFirst({
-      where: {
-        id: folderId,
-        trashed,
-      },
-    });
+  async findOne(targetData: number | string, trashed = false) {
+    let folder: Folder;
+    if (typeof targetData === 'number') {
+      folder = await this.prisma.folder.findFirst({
+        where: { id: targetData, trashed },
+      });
+    } else {
+      folder = await this.prisma.folder.findFirst({
+        where: { pathName: targetData, trashed },
+      });
+    }
     if (!folder) {
       throw new FilesException('DOESNT_EXISTS');
     }
     return folder;
+  }
+
+  async checkExisting(folderName: string, parentId: number) {
+    const candidate = await this.prisma.folder.findFirst({
+      where: {
+        name: folderName,
+        parentId,
+      },
+    });
+    if (candidate) {
+      throw new FilesException('ALREADY_EXISTS');
+    }
   }
 
   async findChildren(folderId: number, trashed = false) {
@@ -78,9 +96,23 @@ export class FoldersService {
     });
   }
 
-  async getRootFolders() {
+  async findSharedChildren(folderId: number) {
     return this.prisma.folder.findMany({
       where: {
+        parentId: folderId,
+        trashed: false,
+        shared: true,
+      },
+      orderBy: {
+        pined: 'asc',
+      },
+    });
+  }
+
+  async getRootFolders(cloudId: number) {
+    return this.prisma.folder.findMany({
+      where: {
+        cloudId,
         parentId: null,
         trashed: false,
       },
@@ -90,22 +122,31 @@ export class FoldersService {
     });
   }
 
-  async getRoot(): Promise<InnersDto> {
-    const folders = await this.getRootFolders();
-    const files = await this.filesService.getRootFiles();
-    return {
-      folders,
-      files,
-    };
+  async getRoot(cloudId: number): Promise<InnersDto> {
+    const folders = await this.getRootFolders(cloudId);
+    const files = await this.filesService.getRootFiles(cloudId);
+    const result = new InnersDto(folders, files);
+    return result;
   }
 
-  async getFolderInners(folderId: number): Promise<InnersDto> {
-    const folders = await this.findChildren(folderId);
-    const files = await this.filesService.findByFolder(folderId);
-    return {
-      folders,
-      files,
-    };
+  async getSharedFolderInners(folderId: number): Promise<InnersDto> {
+    const accessMode = await this.sharingService.checkSharing(folderId, true);
+    const folders = await this.findSharedChildren(folderId);
+    const files = await this.filesService.findBySharedFolder(folderId);
+    const result = new InnersDto(folders, files, accessMode);
+    return result;
+  }
+
+  async getFolderInners(cloudId: number, pathName: string): Promise<InnersDto> {
+    const folder = await this.findOne(pathName);
+    const accessMode = null;
+    if (folder.cloudId !== cloudId && folder.shared) {
+      return this.getSharedFolderInners(folder.id);
+    }
+    const folders = await this.findChildren(folder.id);
+    const files = await this.filesService.findByFolder(folder.id);
+    const result = new InnersDto(folders, files, accessMode);
+    return result;
   }
 
   async update(data: Folder) {
@@ -116,20 +157,24 @@ export class FoldersService {
   }
 
   async create(dto: CreateFolderDto, cloudId: number) {
+    await this.checkExisting(dto.name, dto.parentId);
+    const pathName = uuidv4();
     const folder = await this.prisma.folder.create({
       data: {
         name: dto.name,
         cloudId: cloudId,
         parentId: dto.parentId,
+        pathName,
       },
     });
     return folder;
   }
 
-  async rename(dto: RenameDto) {
-    const folder = await this.findOne(dto.targetId);
+  async rename(id: number, newName: string) {
+    const folder = await this.findOne(id);
     if (folder.freezed) return folder;
-    folder.name = dto.newName;
+    await this.checkExisting(newName, folder.parentId);
+    folder.name = newName;
     return this.update(folder);
   }
 
@@ -163,14 +208,16 @@ export class FoldersService {
   async replace(folderId: number, newParentId: number) {
     const folder = await this.findOne(folderId);
     if (folder.freezed) return folder;
+    await this.checkExisting(folder.name, newParentId);
     folder.parentId = newParentId;
     return this.update(folder);
   }
 
-  async copy(cloudName: string, dto: CopyDto) {
-    const folder = await this.findOne(dto.targetId);
+  async copy(cloud: Cloud, id: number, parentId: number) {
+    const folder = await this.findOne(id);
     if (folder.freezed) return folder;
-    return this.doubleFolder(cloudName, folder, dto.parentId);
+    await this.checkExisting(folder.name, parentId);
+    return this.doubleFolder(cloud, folder, parentId);
   }
 
   async favorites(folderId: number) {
@@ -188,6 +235,26 @@ export class FoldersService {
   async freeze(folderId: number) {
     const folder = await this.findOne(folderId);
     folder.freezed = !folder.freezed;
+    return this.update(folder);
+  }
+
+  async shareFolder(folderId: number, dto: ShareDto) {
+    const folder = await this.findOne(folderId);
+    let shared = await this.sharingService.findOne(folder.id, true);
+    if (shared) {
+      shared.AccessAction = dto.accessMode;
+      shared.open = dto.open;
+      shared = await this.sharingService.update(shared);
+    } else shared = await this.sharingService.share(folderId, dto);
+    await this.filesService.shareFilesByFolder(folderId, dto);
+    const children = await this.findChildren(folderId);
+    for (const child of children) {
+      const childDto = new ShareDto(true);
+      childDto.accessMode = dto.accessMode;
+      childDto.open = dto.open;
+      await this.shareFolder(child.id, childDto);
+    }
+    folder.shared = dto.open;
     return this.update(folder);
   }
 

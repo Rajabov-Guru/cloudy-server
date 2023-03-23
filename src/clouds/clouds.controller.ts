@@ -1,6 +1,6 @@
 import { Controller, UseGuards, Get } from '@nestjs/common';
 import { CloudsService } from './clouds.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { GetCloud } from '../decorators/current-cloud.decorator';
 import { Cloud } from '@prisma/client';
@@ -16,5 +16,5 @@ export class CloudsController {
   @Get()
   getOne(@GetCloud() cloud: Cloud) {
     return cloud;
-  }
+  } //?
 }
