@@ -83,7 +83,7 @@ export class TrashService {
   }
 
   async trashFile(file: File) {
-    const dto = new TrashDto(file, true);
+    const dto = new TrashDto(file);
     await this.record(dto);
     file.trashed = true;
     file.parentId = null;
@@ -97,7 +97,7 @@ export class TrashService {
     }
     const trashRecord = await this.getOne(file.id);
     try {
-      const parent = await this.filesService.findOne(trashRecord.parentId);
+      const parent = await this.foldersService.findOne(trashRecord.parentId);
       file.parentId = parent.id;
     } catch (e) {
       file.parentId = null;

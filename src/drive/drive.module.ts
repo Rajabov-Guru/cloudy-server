@@ -8,7 +8,7 @@ import { FilesController } from './controllers/files.controller';
 import { FilesService } from './services/files.service';
 import { FsService } from '../global-services/fs.service';
 import { TrashService } from './services/trash.service';
-import { TrashController } from './controllers/trash.controller';
+import { DriveController } from './controllers/drive.controller';
 import { StatisticsModule } from '../statistics/statistics.module';
 import { SharingService } from './services/sharing.service';
 
@@ -18,7 +18,7 @@ import { SharingService } from './services/sharing.service';
     forwardRef(() => CloudsModule),
     forwardRef(() => StatisticsModule),
   ],
-  controllers: [FoldersController, FilesController, TrashController],
+  controllers: [FoldersController, FilesController, DriveController],
   providers: [
     FoldersService,
     FilesService,

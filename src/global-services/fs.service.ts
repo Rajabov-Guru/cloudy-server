@@ -3,6 +3,7 @@ import * as pathManager from 'path';
 import * as fse from 'fs-extra';
 import { FilesException } from '../exceptions/files.exception';
 import { File } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class FsService {
@@ -45,12 +46,10 @@ export class FsService {
       );
     }
   }
-  async save(
-    cloudName: string,
-    file: Express.Multer.File,
-    folderId: number | null,
-  ) {
-    const pathName = this.getPathName(folderId, file.originalname);
+  async save(cloudName: string, file: Express.Multer.File) {
+    const ext = pathManager.extname(file.originalname);
+    const ident = uuidv4();
+    const pathName = `${ident}${ext}`;
     const relativePath = pathManager.join(cloudName, pathName);
     const fullPath = this.resolveFullPath(relativePath);
     const exists = await fse.exists(fullPath);
@@ -58,11 +57,7 @@ export class FsService {
       throw new FilesException('ALREADY_EXISTS');
     }
     await fse.writeFile(fullPath, file.buffer);
-    return pathName;
-    // if (fs.existsSync(fullPath)) {
-    //   throw new FilesException('ALREADY_EXISTS');
-    // }
-    // fs.writeFileSync(fullPath, file.buffer);
+    return ident;
   }
   async rename(cloudName: string, file: File, newName: string) {
     const newPathName = this.getPathName(file.parentId, newName);
@@ -73,14 +68,16 @@ export class FsService {
     await fse.rename(oldPath, newPath);
     return newPathName;
   }
-  async copy(cloudName: string, file: File, folderId: number | null) {
-    const newPathName = this.getPathName(folderId, file.name);
-    const fromPath = pathManager.join(cloudName, file.pathName);
-    const toPath = pathManager.join(cloudName, newPathName);
+  async copy(fileCloudName: string, parentCloudName: string, file: File) {
+    const ident = uuidv4();
+    const oldPathName = `${file.pathName}${file.extension}`;
+    const newPathName = `${ident}${file.extension}`;
+    const fromPath = pathManager.join(fileCloudName, oldPathName);
+    const toPath = pathManager.join(parentCloudName, newPathName);
     const from = this.resolveFullPath(fromPath);
     const to = this.resolveFullPath(toPath);
     await fse.copy(from, to);
-    return newPathName;
+    return ident;
   }
   async replace(cloudName: string, file: File, folderId: number | null) {
     const newPathName = this.getPathName(folderId, file.name);

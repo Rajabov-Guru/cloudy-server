@@ -5,6 +5,8 @@ import { PrismaService } from '../global-services/prisma.service';
 import { FsService } from '../global-services/fs.service';
 import { FoldersService } from '../drive/services/folders.service';
 import { StatisticsService } from '../statistics/statistics.service';
+import { FilesService } from '../drive/services/files.service';
+import { InnersDto } from '../drive/dto/inners.dto';
 
 @Injectable()
 export class CloudsService {
@@ -16,6 +18,9 @@ export class CloudsService {
 
   @Inject(forwardRef(() => FoldersService))
   private readonly foldersService: FoldersService;
+
+  @Inject(forwardRef(() => FilesService))
+  private readonly filesService: FilesService;
 
   @Inject(StatisticsService)
   private readonly statisticsService: StatisticsService;
@@ -31,11 +36,12 @@ export class CloudsService {
       where: { userId },
     });
   }
-  findOne(id: number) {
+  async findOne(id: number) {
     return this.prisma.cloud.findFirst({
       where: { id },
     });
   }
+
   update(id: number, updateCloudDto: UpdateCloudDto) {
     return this.prisma.cloud.update({
       where: { id },

@@ -119,7 +119,7 @@ model Statistic {
 model StatisticItem {
   id          Int       @id @default(autoincrement())
   type        String
-  value       Int
+  value       Float
   Statistic   Statistic @relation(fields: [statisticId], references: [id], onDelete: Cascade)
   statisticId Int
 }

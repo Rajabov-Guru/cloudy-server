@@ -96,7 +96,7 @@ export class StatisticsService {
     const otherStatItem = await this.createStatItem(
       stat.id,
       'others',
-      sumPercent,
+      100 - sumPercent,
     );
     statItems.push(otherStatItem);
     return statItems;
@@ -107,7 +107,7 @@ export class StatisticsService {
       stat.cloudId,
       data.extensions,
     );
-    const percent = (sum / stat.storeAmount) * 100;
+    const percent = (sum / stat.usedAmount) * 100;
     return this.createStatItem(stat.id, data.category, percent);
   }
 }

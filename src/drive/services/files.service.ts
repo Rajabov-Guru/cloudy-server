@@ -4,7 +4,6 @@ import { PrismaService } from '../../global-services/prisma.service';
 import { FsService } from '../../global-services/fs.service';
 import { FoldersService } from './folders.service';
 import { FilesException } from '../../exceptions/files.exception';
-import { LoadFilesDto } from '../dto/load-files.dto';
 import { Cloud, File, Folder, SharedList } from '@prisma/client';
 import { TrashService } from './trash.service';
 import { StatisticsService } from '../../statistics/statistics.service';
@@ -39,11 +38,17 @@ export class FilesService {
     let file: File;
     if (typeof targetData === 'number') {
       file = await this.prisma.file.findFirst({
-        where: { id: targetData, trashed },
+        where: {
+          id: targetData,
+          OR: [{ trashed }, { trashed: trashed ? !trashed : trashed }],
+        },
       });
     } else {
       file = await this.prisma.file.findFirst({
-        where: { pathName: targetData, trashed },
+        where: {
+          pathName: targetData,
+          OR: [{ trashed }, { trashed: trashed ? !trashed : trashed }],
+        },
       });
     }
     if (!file) {
@@ -69,23 +74,11 @@ export class FilesService {
     }
   }
 
-  async getFileCloud(fileId: number) {
-    const file = await this.prisma.file.findFirst({
-      where: {
-        id: fileId,
-      },
-      select: {
-        Cloud: true,
-      },
-    });
-    return file.Cloud;
-  }
-
   async findByFolder(parentId: number, trashed = false) {
     return this.prisma.file.findMany({
       where: { parentId, trashed },
       orderBy: {
-        pined: 'asc',
+        pined: 'desc',
       },
     });
   }
@@ -98,7 +91,7 @@ export class FilesService {
         shared: true,
       },
       orderBy: {
-        pined: 'asc',
+        pined: 'desc',
       },
     });
   }
@@ -111,20 +104,29 @@ export class FilesService {
         cloudId,
       },
       orderBy: {
-        pined: 'asc',
+        pined: 'desc',
       },
     });
   }
 
   async saveFiles(
-    dto: LoadFilesDto,
+    parentId: number | null,
     files: Array<Express.Multer.File>,
     cloud: Cloud,
   ) {
+    const sumSize = files.reduce((sum, f) => f.size + sum, 0);
+    const isFull = await this.isStorageFull(cloud.id, sumSize);
+    if (isFull) {
+      throw new FilesException('NOT ENOUGH SPACE');
+    }
+    if (parentId) {
+      const parent = await this.foldersService.findOne(parentId);
+      cloud = await this.cloudsService.findOne(parent.cloudId);
+    }
     const fileItems: File[] = [];
     let size = 0;
     for (const file of files) {
-      const saved = await this.saveSingleFile(dto.parentId, file, cloud);
+      const saved = await this.saveSingleFile(parentId, file, cloud);
       fileItems.push(saved);
       size += file.size;
     }
@@ -137,10 +139,10 @@ export class FilesService {
     file: Express.Multer.File,
     cloud: Cloud,
   ) {
-    const filename = file.originalname;
+    const ext = pathManager.extname(file.originalname);
+    const filename = file.originalname.replace(ext, '');
     await this.checkExisting(filename, parentId);
-    const ext = pathManager.extname(filename);
-    const pathName = await this.fsService.save(cloud.name, file, parentId);
+    const pathName = await this.fsService.save(cloud.name, file);
     const saved = await this.prisma.file.create({
       data: {
         name: filename,
@@ -154,13 +156,10 @@ export class FilesService {
     return saved;
   }
 
-  async rename(cloudName: string, id: number, name: string) {
+  async rename(id: number, name: string) {
     const file = await this.findOne(id);
     await this.checkExisting(name, file.parentId);
-    const newName = `${name}${file.extension}`;
-    const newPathName = await this.fsService.rename(cloudName, file, newName);
-    file.name = newName;
-    file.pathName = newPathName;
+    file.name = name;
     return this.update(file);
   }
 
@@ -171,10 +170,9 @@ export class FilesService {
     });
   }
 
-  async delete(cloudName: string, fileId: number) {
-    let file = await this.prisma.file.findFirst({
-      where: { id: fileId },
-    });
+  async delete(fileId: number) {
+    let file = await this.findOne(fileId, true);
+    const cloud = await this.cloudsService.findOne(file.cloudId);
     if (file.pined) {
       file = await this.pin(file.id);
     }
@@ -182,11 +180,12 @@ export class FilesService {
       return this.trashService.trashFile(file);
     }
     file = await this.trashService.unTrashFile(file.id);
-    await this.fsService.delete(cloudName, file.pathName);
+    const pathName = `${file.pathName}${file.extension}`;
+    await this.fsService.delete(cloud.name, pathName);
     file = await this.prisma.file.delete({
       where: { id: fileId },
     });
-    await this.statisticsService.changeUsedAmount(cloudName, -file.size);
+    await this.statisticsService.changeUsedAmount(cloud.name, -file.size);
     return file;
   }
 
@@ -198,52 +197,70 @@ export class FilesService {
     });
     let size = 0;
     for (const file of files) {
-      await this.fsService.delete(cloudName, file.pathName);
+      const pathName = `${file.pathName}${file.extension}`;
+      await this.fsService.delete(cloudName, pathName);
       size += file.size;
     }
     await this.statisticsService.changeUsedAmount(cloudName, -size);
   }
 
-  async doubleFile(cloud: Cloud, file: File, parentId: number) {
-    file.name = `${file.name}_(copy)`;
-    const newPathName = await this.fsService.copy(cloud.name, file, parentId);
+  async replace(fileId: number, parentId: number) {
+    const file = await this.findOne(fileId);
+    const parent = await this.foldersService.findOne(parentId);
+    if (file.cloudId !== parent.cloudId) {
+      throw new FilesException('NOT ALLOWED');
+    }
+    await this.checkExisting(file.name, parentId);
+    file.parentId = parentId;
+    return this.update(file);
+  }
+
+  async doubleFile(file: File, parent: Folder) {
+    const fileCloud = await this.cloudsService.findOne(file.cloudId);
+    const parentCloud = await this.cloudsService.findOne(parent.cloudId);
+    const newPathName = await this.fsService.copy(
+      fileCloud.name,
+      parentCloud.name,
+      file,
+    );
     const newFile = await this.prisma.file.create({
       data: {
         name: file.name,
         pathName: newPathName,
         extension: file.extension,
         size: file.size,
-        parentId,
-        cloudId: cloud.id,
+        parentId: parent.id,
+        cloudId: parent.cloudId,
       },
     });
-    await this.statisticsService.changeUsedAmount(cloud.name, newFile.size);
-    return file;
-  }
-
-  async replace(cloudName: string, fileId: number, newFolderId: number) {
-    const file = await this.findOne(fileId);
-    await this.checkExisting(file.name, file.parentId);
-    const newPathName = await this.fsService.replace(
-      cloudName,
-      file,
-      newFolderId,
+    await this.statisticsService.changeUsedAmount(
+      parentCloud.name,
+      newFile.size,
     );
-    file.parentId = newFolderId;
-    file.pathName = newPathName;
-    return this.update(file);
+    return newFile;
   }
 
-  async copy(cloud: Cloud, fileId: number, folderId: number) {
+  async copy(fileId: number, parentId: number) {
     const file = await this.findOne(fileId);
-    file.name = `${file.name}_(copy)`;
-    return this.doubleFile(cloud, file, folderId);
+    const parent = await this.foldersService.findOne(parentId);
+    if (file.parentId === parentId) file.name = `${file.name}_(copy)`;
+    await this.checkExisting(file.name, parentId);
+    return this.doubleFile(file, parent);
   }
 
   async favorites(fileId: number) {
     const file = await this.findOne(fileId);
     file.favorite = !file.favorite;
     return this.update(file);
+  }
+
+  async getFavorites(cloudId: number) {
+    return this.prisma.file.findMany({
+      where: {
+        cloudId,
+        favorite: true,
+      },
+    });
   }
 
   async pin(fileId: number) {
@@ -258,12 +275,11 @@ export class FilesService {
     return this.update(file);
   }
 
-  async getManyByIds(ids: number[]) {
+  async getFrozen(cloudId: number) {
     return this.prisma.file.findMany({
       where: {
-        id: {
-          in: ids,
-        },
+        cloudId,
+        freezed: true,
       },
     });
   }
@@ -284,6 +300,7 @@ export class FilesService {
   }
 
   async shareFile(target: number | File, dto: ShareDto) {
+    console.log(dto);
     let file: File;
     if (typeof target === 'number') {
       file = await this.findOne(target);
@@ -308,9 +325,21 @@ export class FilesService {
       const fileDto = new ShareDto();
       fileDto.accessMode = dto.accessMode;
       fileDto.open = dto.open;
-      const saved = await this.shareFile(file, dto);
+      fileDto.dir = false;
+      const saved = await this.shareFile(file, fileDto);
       savedSharings.push(saved);
     }
     return savedSharings;
+  }
+
+  async streamFilePath(path: string) {
+    const foundedFile = await this.findOne(path);
+    const cloud = await this.cloudsService.findOne(foundedFile.cloudId);
+    const filePath = `${foundedFile.pathName}${foundedFile.extension}`;
+    foundedFile.pathName = await this.fsService.getFilePath(
+      cloud.name,
+      filePath,
+    );
+    return foundedFile;
   }
 }

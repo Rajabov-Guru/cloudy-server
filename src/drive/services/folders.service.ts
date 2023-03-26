@@ -32,38 +32,21 @@ export class FoldersService {
   @Inject(SharingService)
   private readonly sharingService: SharingService;
 
-  private async doubleFolder(cloud: Cloud, folder: Folder, parentId: number) {
-    const data = folder;
-    data.parentId = parentId;
-    const pathName = uuidv4();
-    const newFolder = await this.prisma.folder.create({
-      data: {
-        name: data.name,
-        cloudId: data.cloudId,
-        parentId: data.parentId,
-        pathName,
-      },
-    });
-    const files = await this.filesService.findByFolder(folder.id);
-    for (const file of files) {
-      await this.filesService.doubleFile(cloud, file, newFolder.id);
-    }
-    const children = await this.findChildren(folder.id);
-    for (const child of children) {
-      await this.doubleFolder(cloud, child, newFolder.id);
-    }
-    return newFolder;
-  }
-
   async findOne(targetData: number | string, trashed = false) {
     let folder: Folder;
     if (typeof targetData === 'number') {
       folder = await this.prisma.folder.findFirst({
-        where: { id: targetData, trashed },
+        where: {
+          id: targetData,
+          OR: [{ trashed }, { trashed: trashed ? !trashed : trashed }],
+        },
       });
-    } else {
+    } else if (typeof targetData === 'string') {
       folder = await this.prisma.folder.findFirst({
-        where: { pathName: targetData, trashed },
+        where: {
+          pathName: targetData,
+          OR: [{ trashed }, { trashed: trashed ? !trashed : trashed }],
+        },
       });
     }
     if (!folder) {
@@ -91,7 +74,7 @@ export class FoldersService {
         trashed,
       },
       orderBy: {
-        pined: 'asc',
+        pined: 'desc',
       },
     });
   }
@@ -104,7 +87,7 @@ export class FoldersService {
         shared: true,
       },
       orderBy: {
-        pined: 'asc',
+        pined: 'desc',
       },
     });
   }
@@ -117,16 +100,9 @@ export class FoldersService {
         trashed: false,
       },
       orderBy: {
-        pined: 'asc',
+        pined: 'desc',
       },
     });
-  }
-
-  async getRoot(cloudId: number): Promise<InnersDto> {
-    const folders = await this.getRootFolders(cloudId);
-    const files = await this.filesService.getRootFiles(cloudId);
-    const result = new InnersDto(folders, files);
-    return result;
   }
 
   async getSharedFolderInners(folderId: number): Promise<InnersDto> {
@@ -158,11 +134,15 @@ export class FoldersService {
 
   async create(dto: CreateFolderDto, cloudId: number) {
     await this.checkExisting(dto.name, dto.parentId);
+    if (dto.parentId) {
+      const parent = await this.findOne(dto.parentId);
+      cloudId = parent.cloudId;
+    }
     const pathName = uuidv4();
     const folder = await this.prisma.folder.create({
       data: {
         name: dto.name,
-        cloudId: cloudId,
+        cloudId,
         parentId: dto.parentId,
         pathName,
       },
@@ -172,7 +152,6 @@ export class FoldersService {
 
   async rename(id: number, newName: string) {
     const folder = await this.findOne(id);
-    if (folder.freezed) return folder;
     await this.checkExisting(newName, folder.parentId);
     folder.name = newName;
     return this.update(folder);
@@ -182,7 +161,6 @@ export class FoldersService {
     let folder = await this.prisma.folder.findFirst({
       where: { id: folderId },
     });
-    if (folder.freezed) return folder;
     if (folder.pined) {
       folder = await this.pin(folder.id);
     }
@@ -205,25 +183,59 @@ export class FoldersService {
     }
   }
 
-  async replace(folderId: number, newParentId: number) {
+  async replace(folderId: number, parentId: number) {
     const folder = await this.findOne(folderId);
-    if (folder.freezed) return folder;
-    await this.checkExisting(folder.name, newParentId);
-    folder.parentId = newParentId;
+    const parent = await this.findOne(parentId);
+    if (folder.cloudId !== parent.cloudId) {
+      throw new FilesException('NOT ALLOWED');
+    }
+    await this.checkExisting(folder.name, parentId);
+    folder.parentId = parentId;
     return this.update(folder);
   }
 
-  async copy(cloud: Cloud, id: number, parentId: number) {
+  private async doubleFolder(folder: Folder, parent: Folder) {
+    const pathName = uuidv4();
+    const newFolder = await this.prisma.folder.create({
+      data: {
+        name: folder.name,
+        cloudId: parent.cloudId,
+        parentId: parent.id,
+        pathName,
+      },
+    });
+    const files = await this.filesService.findByFolder(folder.id);
+    for (const file of files) {
+      await this.filesService.doubleFile(file, newFolder);
+    }
+    const children = await this.findChildren(folder.id);
+    for (const child of children) {
+      await this.doubleFolder(child, newFolder);
+    }
+    return newFolder;
+  }
+
+  async copy(id: number, parentId: number) {
     const folder = await this.findOne(id);
-    if (folder.freezed) return folder;
+    const parent = await this.findOne(parentId);
+    if (folder.parentId === parentId) folder.name = `${folder.name}_(copy)`;
     await this.checkExisting(folder.name, parentId);
-    return this.doubleFolder(cloud, folder, parentId);
+    return this.doubleFolder(folder, parent);
   }
 
   async favorites(folderId: number) {
     const folder = await this.findOne(folderId);
     folder.favorite = !folder.favorite;
     return this.update(folder);
+  }
+
+  async getFavorites(cloudId: number) {
+    return this.prisma.folder.findMany({
+      where: {
+        cloudId,
+        favorite: true,
+      },
+    });
   }
 
   async pin(folderId: number) {
@@ -236,6 +248,15 @@ export class FoldersService {
     const folder = await this.findOne(folderId);
     folder.freezed = !folder.freezed;
     return this.update(folder);
+  }
+
+  async getFrozen(cloudId: number) {
+    return this.prisma.folder.findMany({
+      where: {
+        cloudId,
+        freezed: true,
+      },
+    });
   }
 
   async shareFolder(folderId: number, dto: ShareDto) {
@@ -256,15 +277,5 @@ export class FoldersService {
     }
     folder.shared = dto.open;
     return this.update(folder);
-  }
-
-  async getManyByIds(ids: number[]) {
-    return this.prisma.folder.findMany({
-      where: {
-        id: {
-          in: ids,
-        },
-      },
-    });
   }
 }

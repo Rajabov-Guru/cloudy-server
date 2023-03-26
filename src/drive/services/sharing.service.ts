@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../global-services/prisma.service';
 import { ShareDto } from '../dto/share.dto';
-import { SharedList } from '@prisma/client';
+import { AccessAction, SharedList } from '@prisma/client';
 
 @Injectable()
 export class SharingService {
@@ -28,6 +28,7 @@ export class SharingService {
   }
 
   async share(targetId: number, dto: ShareDto) {
+    console.log(dto);
     return this.prisma.sharedList.create({
       data: {
         folderId: dto.dir ? targetId : null,
@@ -39,15 +40,9 @@ export class SharingService {
   }
 
   async checkSharing(targetId: number, dir = false) {
-    const candidate = await this.prisma.sharedList.findFirst({
-      where: {
-        folderId: dir ? targetId : null,
-        fileId: !dir ? targetId : null,
-        dir,
-      },
-    });
+    const candidate = await this.findOne(targetId, dir);
     if (candidate) {
       return candidate.AccessAction;
-    } else return null;
+    } else return AccessAction.READ;
   }
 }

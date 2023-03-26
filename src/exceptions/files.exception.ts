@@ -6,7 +6,8 @@ export type FolderExceptionType =
   | 'NOT ENOUGH SPACE'
   | 'ACCESS DENIED'
   | 'FROZEN'
-  | 'UNKNOWN ERROR';
+  | 'UNKNOWN ERROR'
+  | 'NOT ALLOWED';
 
 const assertNever = (x: never): never => {
   throw new Error('Unexpected object: ' + x);
@@ -26,6 +27,8 @@ const getFolderExceptionLabel = (type: FolderExceptionType): string => {
       return 'Папка или файл заморожена';
     case 'UNKNOWN ERROR':
       return 'Неизвестная ошибка';
+    case 'NOT ALLOWED':
+      return 'Действие запрещено';
     default:
       return assertNever(type);
   }

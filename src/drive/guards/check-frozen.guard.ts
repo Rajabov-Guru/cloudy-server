@@ -23,10 +23,10 @@ export class CheckFrozenGuard implements CanActivate {
       context.getClass(),
     );
     if (!isFolder) {
-      const target = await this.filesService.findOne(id);
+      const target = await this.filesService.findOne(id, true);
       return !target.freezed;
     } else {
-      const target = await this.folderService.findOne(id);
+      const target = await this.folderService.findOne(id, true);
       return !target.freezed;
     }
   }
