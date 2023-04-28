@@ -132,6 +132,11 @@ export class FoldersService {
     });
   }
 
+  async setSharingOptions(folder: Folder) {
+    // const sharingOption =
+    return folder;
+  }
+
   async create(dto: CreateFolderDto, cloudId: number) {
     await this.checkExisting(dto.name, dto.parentId);
     if (dto.parentId) {
